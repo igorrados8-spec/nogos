@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liga Kauflandsko - Globalna Statistika</title>
+    <!-- Tailwind CSS za dizajn -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Chart.js za grafove -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen font-sans">
+
+    <!-- Navigacija -->
+    <nav class="bg-gray-800 border-b border-gray-700 p-4 sticky top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-black tracking-wider text-green-400">⚽ LIGA <span class="text-white">KAUFLANDSKO</span></h1>
+            <p class="text-xs text-gray-400 hidden sm:block">Zajednička Live Statistika 2026.</p>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-4 space-y-6">
+
+        <!-- Glavna nadzorna ploča (Grafovi + Unos) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Graf Golovi i Asistencije (Svi igrači) -->
+            <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 shadow-xl">
+                <h2 class="text-xl font-bold mb-4 text-green-400">Ukupna G/A Statistika (Svi Igrači)</h2>
+                <div class="relative h-64 overflow-x-auto">
+                    <div class="min-w-[800px] h-full">
+                        <canvas id="statsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Brza forma za dodavanje učinka -->
+            <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 shadow-xl flex flex-col justify-between">
+                <h2 class="text-xl font-bold mb-4 text-green-400">Brzi Unos s Termina (UŽIVO)</h2>
+                <form id="matchForm" class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-gray-400 mb-1">Datum</label>
+                            <input type="date" id="matchDate" required class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 text-white focus:outline-none focus:border-green-400">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-gray-400 mb-1">Igrač</label>
+                            <select id="playerSelect" required class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 text-white focus:outline-none focus:border-green-400">
+                                <option value="" disabled selected>Odaberi igrača</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Klikeri za lakši unos golova i asistencija -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="bg-gray-700/50 p-3 rounded-xl border border-gray-600 flex flex-col items-center">
+                            <span class="text-xs font-semibold uppercase text-gray-400 mb-2">⚽ Golovi</span>
+                            <div class="flex items-center space-x-4">
+                                <button type="button" onclick="adjustValue('matchGoals', -1)" class="w-10 h-10 bg-gray-600 hover:bg-gray-500 rounded-lg text-xl font-bold transition cursor-pointer select-none">-</button>
+                                <input type="number" id="matchGoals" min="0" value="0" readonly class="w-12 text-center bg-transparent text-xl font-bold focus:outline-none">
+                                <button type="button" onclick="adjustValue('matchGoals', 1)" class="w-10 h-10 bg-green-500 hover:bg-green-600 text-gray-950 rounded-lg text-xl font-bold transition cursor-pointer select-none">+</button>
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-700/50 p-3 rounded-xl border border-gray-600 flex flex-col items-center">
+                            <span class="text-xs font-semibold uppercase text-gray-400 mb-2">🅰️ Asistencije</span>
+                            <div class="flex items-center space-x-4">
+                                <button type="button" onclick="adjustValue('matchAssists', -1)" class="w-10 h-10 bg-gray-600 hover:bg-gray-500 rounded-lg text-xl font-bold transition cursor-pointer select-none">-</button>
+                                <input type="number" id="matchAssists" min="0" value="0" readonly class="w-12 text-center bg-transparent text-xl font-bold focus:outline-none">
+                                <button type="button" onclick="adjustValue('matchAssists', 1)" class="w-10 h-10 bg-blue-500 hover:bg-blue-600 text-gray-950 rounded-lg text-xl font-bold transition cursor-pointer select-none">+</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center bg-gray-700/30 p-3 rounded-xl border border-gray-600/50">
+                        <input type="checkbox" id="matchAttended" checked class="w-5 h-5 text-green-500 bg-gray-700 border-gray-600 rounded focus:ring-green-500 focus:ring-2 cursor-pointer">
+                        <label for="matchAttended" class="ml-3 text-sm font-medium text-gray-300 cursor-pointer select-none">Igrač je bio prisutan na terminu</label>
+                    </div>
+
+                    <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-gray-900 font-bold py-3 rounded-lg transition duration-200 shadow-lg cursor-pointer">
+                        Spremi Učinak za Sve Korisnike
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Srednji dio: Igrači i Tablica Lige -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Upravljanje igračima -->
+            <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 shadow-xl h-fit">
+                <h2 class="text-xl font-bold mb-4 text-green-400">Dodaj Novog Igrača</h2>
+                <form id="playerForm" class="flex gap-2 mb-4">
+                    <input type="text" id="playerName" placeholder="Ime igrača..." required class="flex-1 bg-gray-700 border border-gray-600 rounded-lg p-2.5 text-white focus:outline-none focus:border-green-400">
+                    <button type="submit" class="bg-green-500 hover:bg-green-600 text-gray-900 px-4 rounded-lg font-bold transition cursor-pointer">+</button>
+                </form>
+                <div class="border-t border-gray-700 pt-3">
+                    <h3 class="text-xs font-semibold uppercase text-gray-400 mb-2">Registrirani igrači:</h3>
+                    <ul id="playersList" class="space-y-1 text-sm max-h-60 overflow-y-auto pr-1"></ul>
+                </div>
+            </div>
+
+            <!-- Tablica poretka -->
+            <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 shadow-xl lg:col-span-2">
+                <h2 class="text-xl font-bold mb-4 text-green-400">Glavna Tablica Lige</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm sm:text-base">
+                        <thead>
+                            <tr class="border-b border-gray-700 text-gray-400 text-xs uppercase">
+                                <th class="pb-3 pl-2">Igrač</th>
+                                <th class="pb-3 text-center" title="Dolasci">📋 D</th>
+                                <th class="pb-3 text-center" title="Golovi">⚽ G</th>
+                                <th class="pb-3 text-center" title="Asistencije">🅰️ A</th>
+                                <th class="pb-3 text-center text-green-400 font-bold" title="Golovi + Asistencije">🔥 G+A</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboardBody" class="divide-y divide-gray-700/50"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Posebne Tablice: Strijelci i Asistenti -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Najbolji Strijelci -->
+            <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 shadow-xl">
+                <h2 class="text-xl font-bold mb-4 text-green-400 flex items-center gap-2">⚽ Najbolji Strijelci</h2>
+                <div class="overflow-x-auto max-h-80 overflow-y-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-700 text-gray-400 text-xs uppercase">
+                                <th class="pb-2 pl-2">Poz.</th>
+                                <th class="pb-2">Igrač</th>
+                                <th class="pb-2 text-center font-bold text-green-400">Golovi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="goalsLeaderboardBody" class="divide-y divide-gray-700/50"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Najbolji Asistenti -->
+            <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 shadow-xl">
+                <h2 class="text-xl font-bold mb-4 text-blue-400 flex items-center gap-2">🅰️ Najbolji Asistenti</h2>
+                <div class="overflow-x-auto max-h-80 overflow-y-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-700 text-gray-400 text-xs uppercase">
+                                <th class="pb-2 pl-2">Poz.</th>
+                                <th class="pb-2">Igrač</th>
+                                <th class="pb-2 text-center font-bold text-blue-400">Asistencije</th>
+                            </tr>
+                        </thead>
+                        <tbody id="assistsLeaderboardBody" class="divide-y divide-gray-700/50"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Matrica Evidencije Dolazaka -->
+        <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 shadow-xl">
+            <h2 class="text-xl font-bold mb-2 text-green-400">Evidencija Dolazaka po Datumima</h2>
+            <div class="overflow-x-auto max-w-full">
+                <table class="min-w-full border border-gray-700 text-center text-sm">
+                    <thead>
+                        <tr id="attendanceHeader" class="bg-gray-700 text-gray-200 text-xs uppercase font-bold border-b border-gray-600"></tr>
+                    </thead>
+                    <tbody id="attendanceBody" class="divide-y divide-gray-700"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Povijest unosa -->
+        <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 shadow-xl">
+            <h2 class="text-xl font-bold mb-4 text-green-400">Zadnji Unosi (Zajednička Povijest)</h2>
+            <div class="overflow-x-auto max-h-60">
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="text-gray-400 text-xs uppercase border-b border-gray-700">
+                            <th class="pb-2">Datum</th>
+                            <th class="pb-2">Igrač</th>
+                            <th class="pb-2 text-center">Dolazak</th>
+                            <th class="pb-2 text-center">Golovi</th>
+                            <th class="pb-2 text-center">Asistencije</th>
+                            <th class="pb-2 text-center">Akcija</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyBody" class="divide-y divide-gray-700/50"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase moduli -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, onValue, push, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCNdqAZ8876tmCyTANSxfTf12xCWP2KSck",
+            authDomain: "kauflandskoliga.firebaseapp.com",
+            databaseURL: "https://kauflandskoliga-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "kauflandskoliga",
+            storageBucket: "kauflandskoliga.firebasestorage.app",
+            messagingSenderId: "913970430449",
+            appId: "1:913970430449:web:f8140225e0709cd9d9c450",
+            measurementId: "G-FEB46Y611V"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // GLAVNI TOČNI POČETNI PODACI (Jan je fiksno na 75 golova)
+        const excelImportData = [
+            { player: "Igor", goals: 49, assists: 46, attendance: 23 },
+            { player: "Jan", goals: 75, assists: 19, attendance: 17 },
+            { player: "Marac", goals: 34, assists: 38, attendance: 22 },
+            { player: "Tomba", goals: 30, assists: 36, attendance: 23 },
+            { player: "Domba", goals: 38, assists: 26, attendance: 21 },
+            { player: "Leko", goals: 33, assists: 26, attendance: 16 },
+            { player: "Pozna", goals: 20, assists: 22, attendance: 11 },
+            { player: "Marijan", goals: 23, assists: 18, attendance: 13 },
+            { player: "Deba", goals: 23, assists: 16, attendance: 7 },
+            { player: "Šić", goals: 24, assists: 14, attendance: 14 },
+            { player: "Luka K.", goals: 22, assists: 13, attendance: 10 },
+            { player: "Bruno", goals: 21, assists: 14, attendance: 13 },
+            { player: "Ćos", goals: 14, assists: 20, attendance: 21 },
+            { player: "Juki", goals: 18, assists: 15, attendance: 17 },
+            { player: "Tićbra", goals: 13, assists: 14, attendance: 7 },
+            { player: "Manuel", goals: 17, assists: 6, attendance: 6 },
+            { player: "Miha", goals: 13, assists: 8, attendance: 11 },
+            { player: "Borna", goals: 5, assists: 9, attendance: 10 },
+            { player: "Vec", goals: 5, assists: 7, attendance: 2 },
+            { player: "Gašo", goals: 3, assists: 7, attendance: 16 },
+            { player: "Juraj", goals: 3, assists: 5, attendance: 7 },
+            { player: "Mirko", goals: 3, assists: 0, attendance: 1 },
+            { player: "Brođo", goals: 0, assists: 2, attendance: 1 }
+        ];
+
+        // Svi dosadašnji datumi zaključno s 28.6.
+        const excelDates = [
+            "2026-01-03", "2026-01-10", "2026-01-17", "2026-01-24", "2026-01-31", 
+            "2026-02-07", "2026-02-14", "2026-02-21", "2026-02-28", "2026-03-07", 
+            "2026-03-14", "2026-03-28", "2026-04-04", "2026-04-11", "2026-04-18", 
+            "2026-04-25", "2026-04-30", "2026-05-09", "2026-05-23", "2026-05-31", 
+            "2026-06-07", "2026-06-22", "2026-06-28"
+        ];
+
+        // Točna matrica kvačica za sve termine do sada
+        const excelAttendanceMap = {
+            "Igor": ["2026-01-03", "2026-01-10", "2026-01-17", "2026-01-24", "2026-01-31", "2026-02-07", "2026-02-14", "2026-02-21", "2026-02-28", "2026-03-07", "2026-03-14", "2026-03-28", "2026-04-04", "2026-04-11", "2026-04-18", "2026-04-25", "2026-04-30", "2026-05-09", "2026-05-23", "2026-05-31", "2026-06-07", "2026-06-22", "2026-06-28"],
+            "Jan": ["2026-01-10", "2026-01-17", "2026-02-07", "2026-02-14", "2026-02-21", "2026-02-28", "2026-04-04", "2026-04-11", "2026-04-18", "2026-04-25", "2026-05-09", "2026-05-23", "2026-05-31", "2026-06-07", "2026-06-22", "2026-06-28"],
+            "Marac": ["2026-01-10", "2026-01-17", "2026-01-24", "2026-01-31", "2026-02-07", "2026-02-14", "2026-02-21", "2026-02-28", "2026-03-07", "2026-03-14", "2026-03-28", "2026-04-04", "2026-04-11", "2026-04-18", "2026-04-25", "2026-04-30", "2026-05-09", "2026-05-23", "2026-05-31", "2026-06-07", "2026-06-22", "2026-06-28"],
+            "Tomba": ["2026-01-03", "2026-01-10", "2026-01-17", "2026-01-24", "2026-01-31", "2026-02-07", "2026-02-14", "2026-02-21", "2026-02-28", "2026-03-07", "2026-03-14", "2026-03-28", "2026-04-04", "2026-04-11", "2026-04-18", "2026-04-25", "2026-04-30", "2026-05-09", "2026-05-23", "2026-05-31", "2026-06-07", "2026-06-22", "2026-06-28"],
+            "Domba": ["2026-01-10", "2026-01-17", "2026-01-24", "2026-01-31", "2026-02-07", "2026-02-14", "2026-02-21", "2026-02-28", "2026-03-07", "2026-03-14", "2026-03-28", "2026-04-04", "2026-04-11", "2026-04-18", "2026-04-25", "2026-04-30", "2026-05-09", "2026-05-23", "2026-05-31", "2026-06-07", "2026-06-28"],
+            "Leko": ["2026-01-03", "2026-01-17", "2026-01-31", "2026-02-07", "2026-02-21", "2026-02-28", "2026-03-07", "2026-03-14", "2026-03-28", "2026-04-04", "2026-04-11", "2026-04-18", "2026-04-25", "2026-04-30", "2026-06-07", "2026-06-28"],
+            "Pozna": ["2026-01-10", "2026-01-17", "2026-02-07", "2026-02-14", "2026-02-21", "2026-02-28", "2026-03-07", "2026-03-14", "2026-04-11", "2026-04-18"],
+            "Marijan": ["2026-01-24", "2026-01-31", "2026-02-07", "2026-02-14", "2026-02-21", "2026-02-28", "2026-03-07", "2026-04-04", "2026-04-25", "2026-04-30", "2026-05-23", "2026-06-07", "2026-06-22"],
+            "Deba": ["2026-01-24", "2026-01-31", "2026-04-11", "2026-04-25", "2026-05-09", "2026-05-23", "2026-06-22"],
+            "Šić": ["2026-01-03", "2026-01-10", "2026-01-31", "2026-02-07", "2026-02-14", "2026-02-21", "2026-02-28", "2026-03-28", "2026-04-04", "2026-04-11", "2026-04-18", "2026-04-25", "2026-04-30", "2026-05-09"],
+            "Luka K.": ["2026-01-03", "2026-01-17", "2026-01-24", "2026-01-31", "2026-02-07", "2026-02-21", "2026-04-30", "2026-06-07", "2026-06-22", "2026-06-28"],
+            "Bruno": ["2026-01-03", "2026-01-10", "2026-01-17", "2026-01-31", "2026-02-07", "2026-02-21", "2026-02-28", "2026-03-07", "2026-03-14", "2026-04-04", "2026-05-09", "2026-05-23", "2026-06-22"],
+            "Ćos": ["2026-01-03", "2026-01-10", "2026-01-17", "2026-01-24", "2026-02-07", "2026-02-14", "2026-02-21", "2026-02-28", "2026-03-07", "2026-03-14", "2026-03-28", "2026-04-04", "2026-04-11", "2026-04-18", "2026-04-25", "2026-04-30", "2026-05-09", "2026-05-23", "2026-05-31", "2026-06-07", "2026-06-28"],
+            "Juki": ["2026-01-03", "2026-01-10", "2026-01-17", "2026-01-31", "2026-02-14", "2026-02-21", "2026-02-28", "2026-03-07", "2026-03-14", "2026-03-28", "2026-04-04", "2026-04-18", "2026-04-25", "2026-04-30", "2026-05-09", "2026-05-23", "2026-06-22"],
+            "Tićbra": ["2026-01-03", "2026-01-10", "2026-01-17", "2026-01-24", "2026-02-14", "2026-03-07", "2026-04-18"],
+            "Manuel": ["2026-01-10", "2026-01-17", "2026-01-24", "2026-02-07", "2026-02-28", "2026-04-25"],
+            "Miha": ["2026-01-31", "2026-02-07", "2026-02-14", "2026-02-21", "2026-03-07", "2026-04-04", "2026-04-25", "2026-04-30", "2026-05-23", "2026-06-07", "2026-06-28"],
+            "Borna": ["2026-01-03", "2026-01-10", "2026-01-24", "2026-02-28", "2026-03-07", "2026-03-28", "2026-04-18", "2026-04-25", "2026-05-09", "2026-05-31"],
+            "Vec": ["2026-03-14", "2026-04-04"],
+            "Gašo": ["2026-01-10", "2026-01-17", "2026-01-24", "2026-01-31", "2026-02-07", "2026-02-14", "2026-02-21", "2026-02-28", "2026-03-28", "2026-04-04", "2026-04-11", "2026-04-25", "2026-04-30", "2026-06-07", "2026-06-22", "2026-06-28"],
+            "Juraj": ["2026-03-28", "2026-04-25", "2026-04-30", "2026-05-09", "2026-05-23", "2026-05-31", "2026-06-28"],
+            "Mirko": ["2026-06-22"],
+            "Brođo": ["2026-06-22"]
+        };
+
+        let firebasePlayers = [];
+        let globalMatches = [];
+        let myChart = null;
+
+        onValue(ref(db, 'players'), (snapshot) => {
+            const data = snapshot.val();
+            firebasePlayers = data ? Object.keys(data) : [];
+            updateUI();
+        });
+
+        onValue(ref(db, 'matches'), (snapshot) => {
+            const data = snapshot.val();
+            globalMatches = [];
+            
+            // Povlačenje fiksnog stanja
+            excelImportData.forEach((d, idx) => {
+                globalMatches.push({
+                    id: "excel_" + idx,
+                    date: "2026-01-01", 
+                    player: d.player,
+                    goals: d.goals,
+                    assists: d.assists,
+                    attended: true,
+                    isExcelImport: true
+                });
+            });
+
+            // Čitanje samo NOVIH unosa preko forme iz baze
+            if (data) {
+                Object.keys(data).forEach(key => {
+                    globalMatches.push({ id: key, ...data[key] });
+                });
+            }
+            updateUI();
+        });
+
+        const playerForm = document.getElementById('playerForm');
+        const matchForm = document.getElementById('matchForm');
+        const matchDate = document.getElementById('matchDate');
+        const matchAttended = document.getElementById('matchAttended');
+        matchDate.value = new Date().toISOString().split('T')[0];
+
+        window.adjustValue = function(id, amount) {
+            const input = document.getElementById(id);
+            let val = parseInt(input.value) || 0;
+            val += amount;
+            if(val < 0) val = 0;
+            input.value = val;
+            if(val > 0) matchAttended.checked = true;
+        }
+
+        playerForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('playerName').value.trim();
+            if(name) {
+                set(ref(db, 'players/' + name), true);
+                document.getElementById('playerName').value = '';
+            }
+        });
+
+        matchForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const pSelect = document.getElementById('playerSelect').value;
+            if(!pSelect) return alert("Odaberi igrača!");
+
+            const newMatchRef = push(ref(db, 'matches'));
+            set(newMatchRef, {
+                date: matchDate.value,
+                player: pSelect,
+                goals: parseInt(document.getElementById('matchGoals').value) || 0,
+                assists: parseInt(document.getElementById('matchAssists').value) || 0,
+                attended: matchAttended.checked
+            });
+
+            document.getElementById('matchGoals').value = 0;
+            document.getElementById('matchAssists').value = 0;
+            matchAttended.checked = true;
+        });
+
+        window.deleteMatch = function(id) {
+            if(confirm("Želiš li obrisati ovaj unos?")) {
+                remove(ref(db, 'matches/' + id));
+            }
+        }
+
+        function updateUI() {
+            const excelPlayerNames = excelImportData.map(p => p.player);
+            const matchPlayerNames = globalMatches.map(m => m.player);
+            const allPlayersSet = new Set([...excelPlayerNames, ...firebasePlayers, ...matchPlayerNames]);
+            const finalPlayersList = Array.from(allPlayersSet).sort();
+
+            const playersList = document.getElementById('playersList');
+            const playerSelect = document.getElementById('playerSelect');
+            const currentSel = playerSelect.value;
+            
+            playersList.innerHTML = '';
+            playerSelect.innerHTML = '<option value="" disabled selected>Odaberi igrača</option>';
+            
+            finalPlayersList.forEach(p => {
+                playersList.innerHTML += `<li class="py-1 px-2 bg-gray-700/50 rounded flex justify-between items-center text-gray-300"><span>🏃 ${p}</span></li>`;
+                playerSelect.innerHTML += `<option value="${p}">${p}</option>`;
+            });
+            if(finalPlayersList.includes(currentSel)) playerSelect.value = currentSel;
+
+            let stats = {};
+            finalPlayersList.forEach(p => stats[p] = { goals: 0, assists: 0, total: 0, attendance: 0 });
+
+            // Zbrajanje učinka (samo fiksni import + buduće utakmice iz forme)
+            globalMatches.forEach(m => {
+                if (stats[m.player]) {
+                    stats[m.player].goals += m.goals;
+                    stats[m.player].assists += m.assists;
+                    stats[m.player].total += (m.goals + m.assists);
+                }
+            });
+
+            // Isključivo datumi iz baze (koji nisu dio osnovnog importa) ulaze u dinamičke datume
+            let dynamicDates = [...new Set(globalMatches.filter(m => !m.isExcelImport).map(m => m.date))].sort();
+            let allDates = [...excelDates, ...dynamicDates];
+
+            finalPlayersList.forEach(p => {
+                let count = 0;
+                allDates.forEach(date => {
+                    let attended = false;
+                    if (excelDates.includes(date)) {
+                        if (excelAttendanceMap[p] && excelAttendanceMap[p].includes(date)) {
+                            attended = true;
+                        }
+                    } else {
+                        attended = globalMatches.some(m => m.player === p && m.date === date && m.attended);
+                    }
+                    if(attended) count++;
+                });
+                stats[p].attendance = count; 
+            });
+
+            const allStatsArray = Object.keys(stats).map(name => ({ name, ...stats[name] }));
+
+            const sortedByTotal = [...allStatsArray].sort((a, b) => b.total - a.total || b.goals - a.goals);
+            const sortedByGoals = [...allStatsArray].sort((a, b) => b.goals - a.goals || b.assists - a.assists);
+            const sortedByAssists = [...allStatsArray].sort((a, b) => b.assists - a.assists || b.goals - a.goals);
+
+            // RENDER: Glavna Tablica Lige
+            const leaderboardBody = document.getElementById('leaderboardBody');
+            leaderboardBody.innerHTML = '';
+            sortedByTotal.forEach((s, idx) => {
+                let medal = idx === 0 ? '👑 ' : (idx === 1 ? '🥈 ' : (idx === 2 ? '🥉 ' : ''));
+                leaderboardBody.innerHTML += `
+                    <tr class="hover:bg-gray-700/30 transition">
+                        <td class="py-3 pl-2 font-medium">${medal}${s.name}</td>
+                        <td class="py-3 text-center font-bold text-blue-300">${s.attendance}</td>
+                        <td class="py-3 text-center font-semibold text-gray-300">${s.goals}</td>
+                        <td class="py-3 text-center font-semibold text-gray-300">${s.assists}</td>
+                        <td class="py-3 text-center font-black text-green-400 text-lg">${s.total}</td>
+                    </tr>
+                `;
+            });
+
+            // RENDER: Posebna Tablica Strijelaca
+            const goalsLeaderboardBody = document.getElementById('goalsLeaderboardBody');
+            goalsLeaderboardBody.innerHTML = '';
+            sortedByGoals.forEach((s, idx) => {
+                let badge = idx === 0 ? '🥇 ' : (idx === 1 ? '🥈 ' : (idx === 2 ? '🥉 ' : `${idx + 1}. `));
+                goalsLeaderboardBody.innerHTML += `
+                    <tr class="hover:bg-gray-700/20 transition">
+                        <td class="py-2 pl-2 text-gray-400 w-12">${badge}</td>
+                        <td class="py-2 font-medium text-gray-200">${s.name}</td>
+                        <td class="py-2 text-center font-black text-green-400 text-base">${s.goals}</td>
+                    </tr>
+                `;
+            });
+
+            // RENDER: Posebna Tablica Asistenata
+            const assistsLeaderboardBody = document.getElementById('assistsLeaderboardBody');
+            assistsLeaderboardBody.innerHTML = '';
+            sortedByAssists.forEach((s, idx) => {
+                let badge = idx === 0 ? '🥇 ' : (idx === 1 ? '🥈 ' : (idx === 2 ? '🥉 ' : `${idx + 1}. `));
+                assistsLeaderboardBody.innerHTML += `
+                    <tr class="hover:bg-gray-700/20 transition">
+                        <td class="py-2 pl-2 text-gray-400 w-12">${badge}</td>
+                        <td class="py-2 font-medium text-gray-200">${s.name}</td>
+                        <td class="py-2 text-center font-black text-blue-400 text-base">${s.assists}</td>
+                    </tr>
+                `;
+            });
+
+            // Povijest unosa (prikazuje samo naknadno unesene utakmice, ne import)
+            const historyBody = document.getElementById('historyBody');
+            historyBody.innerHTML = '';
+            [...globalMatches].reverse().forEach(m => {
+                if (m.isExcelImport) return;
+                const formattedDate = new Date(m.date).toLocaleDateString('hr-HR');
+                historyBody.innerHTML += `
+                    <tr class="hover:bg-gray-700/20 text-gray-300">
+                        <td class="py-2.5 text-xs text-gray-400">${formattedDate}</td>
+                        <td class="py-2.5 font-semibold">${m.player}</td>
+                        <td class="py-2.5 text-center text-xs">${m.attended ? '✅ Da' : '❌ Ne'}</td>
+                        <td class="py-2.5 text-center text-green-400">+${m.goals}</td>
+                        <td class="py-2.5 text-center text-blue-400">+${m.assists}</td>
+                        <td class="py-2.5 text-center">
+                            <button onclick="deleteMatch('${m.id}')" class="text-xs text-red-400 hover:text-red-500 hover:underline cursor-pointer">Briši</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            // Grafikon
+            const ctx = document.getElementById('statsChart').getContext('2d');
+            if (myChart) myChart.destroy();
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sortedByTotal.map(s => s.name),
+                    datasets: [
+                        { label: 'Golovi', data: sortedByTotal.map(s => s.goals), backgroundColor: '#4ade80', borderRadius: 6 },
+                        { label: 'Asistencije', data: sortedByTotal.map(s => s.assists), backgroundColor: '#60a5fa', borderRadius: 6 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { ticks: { color: '#9ca3af' } },
+                        y: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' } }
+                    },
+                    plugins: { legend: { labels: { color: '#f3f4f6' } } }
+                }
+            });
+
+            // Zaglavlje matrice dolazaka
+            let headerHTML = `<th class="p-3 text-left bg-gray-700 sticky left-0 z-10 w-32">Igrač</th><th class="p-3 bg-gray-700/80 text-blue-400">Ukupno</th>`;
+            allDates.forEach(date => {
+                let d = new Date(date);
+                headerHTML += `<th class="p-3 text-xs whitespace-nowrap">${isNaN(d.getTime()) ? date : d.getDate() + '.' + (d.getMonth() + 1) + '.'}</th>`;
+            });
+            document.getElementById('attendanceHeader').innerHTML = headerHTML;
+
+            // Renderiranje tijela matrice sa apsolutno točnim kvačicama
+            let bodyHTML = '';
+            sortedByTotal.forEach(s => {
+                bodyHTML += `<tr class="hover:bg-gray-700/40 transition"><td class="p-3 text-left font-semibold border-r border-gray-700 sticky left-0 bg-gray-800 z-10">${s.name}</td><td class="p-3 bg-gray-800 font-bold text-blue-400 border-r border-gray-700">${s.attendance}</td>`;
+                allDates.forEach(date => {
+                    let attended = false;
+                    if (excelDates.includes(date)) {
+                        if (excelAttendanceMap[s.name] && excelAttendanceMap[s.name].includes(date)) {
+                            attended = true;
+                        }
+                    } else {
+                        attended = globalMatches.some(m => m.player === s.name && m.date === date && m.attended);
+                    }
+                    bodyHTML += attended ? `<td class="p-3 text-green-400 font-bold bg-green-500/10">✔</td>` : `<td class="p-3 text-gray-600">–</td>`;
+                });
+                bodyHTML += `</tr>`;
+            });
+            document.getElementById('attendanceBody').innerHTML = bodyHTML;
+        }
+    </script>
+</body>
+</html>
